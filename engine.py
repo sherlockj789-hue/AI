@@ -3,6 +3,7 @@ import json
 import re
 import subprocess
 import hashlib
+import argparse
 from datetime import datetime
 from utils import call_ollama, search_duckduckgo, SAFE_SANDBOX_DIR, DESIGN_MEMORY_DIR
 
@@ -53,11 +54,13 @@ ULTIMATE_KIT = {
 
 PERMANENT_COMPANY_NAME = "Nova_Core_Platform"
 
-# Low-power safe defaults: set environment variable LOW_POWER_MODE=0 to allow full behavior
+# Defaults: low-power and offline-safe to protect your machine and electricity bill
 LOW_POWER_MODE = os.getenv("LOW_POWER_MODE", "1").lower() not in ("0", "false", "no")
+OFFLINE_MODE = os.getenv("OFFLINE_MODE", "1").lower() in ("1", "true", "yes", "on")
 
-# Simple on-disk prompt/result cache to avoid repeated expensive LLM calls
 _PROMPT_CACHE_FILE = os.path.join(SAFE_SANDBOX_DIR, "prompt_cache.json")
+_STATE_FILE = os.path.join(SAFE_SANDBOX_DIR, "agent_state.json")
+
 try:
     with open(_PROMPT_CACHE_FILE, "r", encoding="utf-8") as _cf:
         _PROMPT_CACHE = json.load(_cf)
@@ -86,8 +89,23 @@ def _hash_prompt(model: str, system: str, user: str) -> str:
     return h.hexdigest()
 
 
+def load_agent_state():
+    try:
+        with open(_STATE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"runs": 0, "last_updated": None, "projects": []}
+
+
+def save_agent_state(state):
+    try:
+        with open(_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+    except Exception:
+        pass
+
+
 def sanitize_and_heal_code(raw_code: str) -> str:
-    # Remove markdown fences and ensure basic HTML closure
     clean = re.sub(r"```[a-zA-Z]*\n", "", raw_code)
     clean = re.sub(r"\n```", "", clean).strip()
     if "<body>" in clean and "</body>" not in clean:
@@ -95,9 +113,41 @@ def sanitize_and_heal_code(raw_code: str) -> str:
     return clean
 
 
+def generate_additional_project_files(project_path: str, prd: str, branding: str):
+    files = {
+        "README.md": f"# {PERMANENT_COMPANY_NAME}\n\n## Product vision\n{prd[:1200]}\n\n## Brand\n{branding[:800]}\n\n## Deliverables\n- Landing page\n- Product dashboard\n- User auth\n- Live analytics\n- Launch checklist\n",
+        "FEATURES.md": "# Product Features\n\n- Premium glassmorphism landing page\n- Realtime app data flow\n- Smart authentication and dashboard UX\n- Analytics and reporting layer\n- Marketing launch pack\n",
+        "LAUNCH_CHECKLIST.md": "# Launch checklist\n\n- Validate auth flow\n- Test realtime updates\n- Confirm analytics charts\n- Verify responsive mobile UX\n- Publish marketing copy\n- Measure conversion and retention\n",
+        "TASKS.md": "# Weekly execution plan\n\n1. Validate product direction\n2. Complete landing page and hero flow\n3. Add auth and live data pipeline\n4. Launch analytics and CTA section\n5. Ship launch campaign\n",
+    }
+    for name, content in files.items():
+        try:
+            with open(os.path.join(project_path, name), "w", encoding="utf-8") as f:
+                f.write(content)
+        except Exception:
+            pass
+
+
+def build_project_plan(prd: str, current_code_context: str):
+    base_prompt = (
+        "You are a product strategist. Turn the product brief into a sharp execution plan.\n"
+        "Return a concise list of 5 winning features, each with a short rationale and a business impact.\n"
+        "Format as bullets."
+    )
+    plan = call_ollama(BRAIN_MODEL, base_prompt, f"Brief:\n{prd}\n\nCode context:\n{current_code_context}")
+    return plan
+
+
 def run_continuous_company_growth():
     project_path = os.path.join(SAFE_SANDBOX_DIR, PERMANENT_COMPANY_NAME)
     os.makedirs(project_path, exist_ok=True)
+
+    state = load_agent_state()
+    state["runs"] = int(state.get("runs", 0)) + 1
+    state["last_updated"] = datetime.utcnow().isoformat()
+    state.setdefault("projects", [])
+    if PERMANENT_COMPANY_NAME not in state["projects"]:
+        state["projects"].append(PERMANENT_COMPANY_NAME)
 
     print(f"\n⚡ Executing Ultimate Scale & Feature Architecture Cycle for 【 {PERMANENT_COMPANY_NAME} 】")
     prd_path = os.path.join(project_path, "PRODUCT_REQUIREMENTS.md")
@@ -127,11 +177,19 @@ def run_continuous_company_growth():
     else:
         prd = call_ollama(BRAIN_MODEL, f"Active Blueprint:\n{existing_prd}\n\nLive Code:\n{current_code_context}\n\nDesign an advanced extension layer user panel section.", "Upgrade blueprint.")
 
+    plan = build_project_plan(prd, current_code_context)
     try:
         with open(prd_path, "w", encoding="utf-8") as f:
             f.write(prd)
     except Exception:
         print("Warning: Could not write PRODUCT_REQUIREMENTS.md")
+
+    try:
+        plan_path = os.path.join(project_path, "EXECUTION_PLAN.md")
+        with open(plan_path, "w", encoding="utf-8") as f:
+            f.write(plan)
+    except Exception:
+        pass
 
     branding = call_ollama(DESIGN_MODEL, "Create premium Tailwind dark hex colors and visual copywriting headline hooks.", prd)
 
@@ -154,7 +212,10 @@ def run_continuous_company_growth():
         except Exception:
             print(f"Warning: Could not write {file_name}")
 
-    # MARKETING: lightweight and safe
+    # Additional deliverables: useful project docs to help the agent feel stronger and more complete
+    generate_additional_project_files(project_path, prd, branding)
+
+    # Marketing tone and launch copy
     print("📢 [Creative Director] Writing automated social media marketing launch thread...")
     marketing_prompt = "Write a high-converting, viral 4-tweet launch thread for X (Twitter) promoting this new full-stack app. Include hooks, features, and hashtags."
     campaign_text = call_ollama(DESIGN_MODEL, marketing_prompt, f"Company: {PERMANENT_COMPANY_NAME}\nFeatures:\n{prd}")
@@ -185,7 +246,6 @@ def run_continuous_company_growth():
     else:
         print("Vercel deploy skipped in LOW_POWER_MODE.")
 
-    # Record a short lesson (cached by utils.call_ollama memory mechanism)
     lesson = call_ollama(BRAIN_MODEL, "Identify any UI elements that feel standard or low-effort. Start response exactly with: 'DESIGN LESSON learned:'", prd)
     try:
         lesson_id = len([f for f in os.listdir(DESIGN_MEMORY_DIR) if f.endswith('.txt')]) + 1
@@ -195,7 +255,49 @@ def run_continuous_company_growth():
     except Exception:
         print("Warning: Could not write design memory lesson.")
 
+    save_agent_state(state)
+    return {
+        "company": PERMANENT_COMPANY_NAME,
+        "project_path": project_path,
+        "product_requirements": prd_path,
+        "plan": plan,
+        "branding": branding,
+        "low_power": LOW_POWER_MODE,
+        "offline": OFFLINE_MODE,
+    }
+
 
 # Backwards-compatible wrapper: smart_founder imports this name
 def build_and_deploy_fullstack_company():
     return run_continuous_company_growth()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Nova Core Platform autonomous founder agent")
+    parser.add_argument("--once", action="store_true", help="Run one cycle only")
+    parser.add_argument("--loop", action="store_true", help="Run forever with a cooldown")
+    parser.add_argument("--interval", type=int, default=20, help="Loop interval in seconds")
+    parser.add_argument("--offline", action="store_true", help="Force offline stub mode")
+    parser.add_argument("--low-power", action="store_true", help="Reduce heavy operations")
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    if args.offline:
+        os.environ["OFFLINE_MODE"] = "1"
+    if args.low_power:
+        os.environ["LOW_POWER_MODE"] = "1"
+
+    if args.loop:
+        import time
+        while True:
+            try:
+                build_and_deploy_fullstack_company()
+                print(f"\n⏰ Cooldown active. Next build sequence starts in {args.interval} seconds...")
+                time.sleep(args.interval)
+            except KeyboardInterrupt:
+                print("\n🛑 Infinite Loop Engine paused safely. Enterprise state maintained.")
+                break
+    else:
+        build_and_deploy_fullstack_company()
