@@ -12,6 +12,44 @@ BRAIN_MODEL = "deepseek-r1:32b"
 DESIGN_MODEL = "llama3:latest"
 ENGINE_MODEL = "qwen2.5-coder:32b"
 
+APP_BLUEPRINTS = {
+    "saas_dashboard": {
+        "name": "SaaS Dashboard",
+        "value_prop": "Premium analytics, growth reporting, and executive visibility for modern software businesses.",
+        "features": ["Live KPI cards", "workflow automation", "team activity feed", "conversion funnel tracking"],
+        "color": "#06b6d4",
+        "ui": "dark executive dashboard",
+    },
+    "ai_assistant": {
+        "name": "AI Assistant App",
+        "value_prop": "A private AI workspace for drafting, summarizing, brainstorming, and customer responses.",
+        "features": ["AI workspace", "smart prompts", "knowledge base", "chat memory"],
+        "color": "#8b5cf6",
+        "ui": "glass productivity workspace",
+    },
+    "crm_suite": {
+        "name": "CRM Suite",
+        "value_prop": "A polished client journey manager for sales, support, and retention workflows.",
+        "features": ["pipeline board", "lead score tracking", "automated follow-ups", "task reminders"],
+        "color": "#22c55e",
+        "ui": "sales command center",
+    },
+    "marketplace": {
+        "name": "Marketplace",
+        "value_prop": "A curated marketplace for digital products, services, and premium tools.",
+        "features": ["featured listings", "seller dashboard", "search filters", "trust badges"],
+        "color": "#f59e0b",
+        "ui": "premium storefront",
+    },
+    "community_app": {
+        "name": "Community App",
+        "value_prop": "A high-engagement community platform that blends discussion, events, and members.",
+        "features": ["member directory", "discussion board", "event calendar", "member goals"],
+        "color": "#ec4899",
+        "ui": "social engagement hub",
+    },
+}
+
 ULTIMATE_KIT = {
     "SUPABASE_REALTIME_AUTH": """
         const supabaseUrl = 'https://supabase.co';
@@ -113,9 +151,9 @@ def sanitize_and_heal_code(raw_code: str) -> str:
     return clean
 
 
-def generate_additional_project_files(project_path: str, prd: str, branding: str):
+def generate_additional_project_files(project_path: str, prd: str, branding: str, app_name: str):
     files = {
-        "README.md": f"# {PERMANENT_COMPANY_NAME}\n\n## Product vision\n{prd[:1200]}\n\n## Brand\n{branding[:800]}\n\n## Deliverables\n- Landing page\n- Product dashboard\n- User auth\n- Live analytics\n- Launch checklist\n",
+        "README.md": f"# {app_name}\n\n## Product vision\n{prd[:1200]}\n\n## Brand\n{branding[:800]}\n\n## Deliverables\n- Landing page\n- Product dashboard\n- User auth\n- Live analytics\n- Launch checklist\n",
         "FEATURES.md": "# Product Features\n\n- Premium glassmorphism landing page\n- Realtime app data flow\n- Smart authentication and dashboard UX\n- Analytics and reporting layer\n- Marketing launch pack\n",
         "LAUNCH_CHECKLIST.md": "# Launch checklist\n\n- Validate auth flow\n- Test realtime updates\n- Confirm analytics charts\n- Verify responsive mobile UX\n- Publish marketing copy\n- Measure conversion and retention\n",
         "TASKS.md": "# Weekly execution plan\n\n1. Validate product direction\n2. Complete landing page and hero flow\n3. Add auth and live data pipeline\n4. Launch analytics and CTA section\n5. Ship launch campaign\n",
@@ -128,143 +166,132 @@ def generate_additional_project_files(project_path: str, prd: str, branding: str
             pass
 
 
-def build_project_plan(prd: str, current_code_context: str):
+def build_project_plan(prd: str, current_code_context: str, app_name: str):
     base_prompt = (
         "You are a product strategist. Turn the product brief into a sharp execution plan.\n"
         "Return a concise list of 5 winning features, each with a short rationale and a business impact.\n"
         "Format as bullets."
     )
-    plan = call_ollama(BRAIN_MODEL, base_prompt, f"Brief:\n{prd}\n\nCode context:\n{current_code_context}")
+    plan = call_ollama(BRAIN_MODEL, base_prompt, f"App type: {app_name}\nBrief:\n{prd}\n\nCode context:\n{current_code_context}")
     return plan
 
 
-def run_continuous_company_growth():
-    project_path = os.path.join(SAFE_SANDBOX_DIR, PERMANENT_COMPANY_NAME)
-    os.makedirs(project_path, exist_ok=True)
+def build_app_variant(project_path: str, app_key: str, app_meta: dict, generation_seed: str):
+    app_name = app_meta["name"]
+    print(f"\n🚀 Building app variant: {app_name}")
 
+    variant_dir = os.path.join(project_path, app_key)
+    os.makedirs(variant_dir, exist_ok=True)
+
+    product_brief = (
+        f"App type: {app_name}\n"
+        f"Value proposition: {app_meta['value_prop']}\n"
+        f"Primary features: {', '.join(app_meta['features'])}\n"
+        f"UI style: {app_meta['ui']}\n"
+        f"Market angle: Create a premium and useful {app_name.lower()} that feels polished, modern, and conversion-driven."
+    )
+
+    # Create a basic app scaffold using generated snippets and template modules
+    landing = f"""
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset=\"UTF-8\" />
+        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+        <title>{app_name}</title>
+      </head>
+      <body>
+        <div class=\"app-shell\">
+          <nav class=\"topbar\">{app_name}</nav>
+          <header class=\"hero\">
+            <h1>{app_name}</h1>
+            <p>{app_meta['value_prop']}</p>
+            <button class=\"hyper-btn\">Launch</button>
+          </header>
+          <section class=\"grid\">
+            {''.join(f'<div class=\"card\"><h3>{feature}</h3><p>{app_meta["value_prop"]}</p></div>' for feature in app_meta['features'])}
+          </section>
+        </div>
+      </body>
+    </html>
+    """
+
+    css = f"""
+    body {{ background: #050816; color: #edf2ff; font-family: sans-serif; margin: 0; }}
+    .app-shell {{ max-width: 1200px; margin: 0 auto; padding: 32px; }}
+    .topbar {{ background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); padding: 16px 20px; border-radius: 16px; margin-bottom: 32px; }}
+    .hero {{ padding: 40px 20px; border-radius: 24px; background: linear-gradient(135deg, rgba(6,182,212,0.18), rgba(139,92,246,0.18)); border: 1px solid rgba(255,255,255,0.08); }}
+    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-top: 30px; }}
+    .card {{ background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 18px; }}
+    .hyper-btn {{ background: linear-gradient(135deg, {app_meta['color']}, #6366f1); color: white; border: none; border-radius: 12px; padding: 12px 18px; cursor: pointer; }}
+    """
+
+    js = f"""
+    async function initApp() {{
+      console.log('Starting {app_name}');
+      const cards = document.querySelectorAll('.card');
+      cards.forEach((card, index) => {{
+        card.style.transform = `translateY(${index * 2}px)`;
+      }});
+    }}
+    initApp();
+    """
+
+    readme_path = os.path.join(variant_dir, "README.md")
+    with open(readme_path, "w", encoding="utf-8") as f:
+        f.write(f"# {app_name}\n\n{product_brief}\n")
+
+    with open(os.path.join(variant_dir, "index.html"), "w", encoding="utf-8") as f:
+        f.write(landing)
+    with open(os.path.join(variant_dir, "styles.css"), "w", encoding="utf-8") as f:
+        f.write(css)
+    with open(os.path.join(variant_dir, "app.js"), "w", encoding="utf-8") as f:
+        f.write(js)
+
+    try:
+        with open(os.path.join(variant_dir, "PRODUCT_REQUIREMENTS.md"), "w", encoding="utf-8") as f:
+            f.write(product_brief)
+    except Exception:
+        pass
+
+    return product_brief
+
+
+def run_continuous_company_growth():
     state = load_agent_state()
     state["runs"] = int(state.get("runs", 0)) + 1
     state["last_updated"] = datetime.utcnow().isoformat()
     state.setdefault("projects", [])
-    if PERMANENT_COMPANY_NAME not in state["projects"]:
-        state["projects"].append(PERMANENT_COMPANY_NAME)
 
-    print(f"\n⚡ Executing Ultimate Scale & Feature Architecture Cycle for 【 {PERMANENT_COMPANY_NAME} 】")
-    prd_path = os.path.join(project_path, "PRODUCT_REQUIREMENTS.md")
-    existing_prd = ""
-    if os.path.exists(prd_path):
+    project_path = os.path.join(SAFE_SANDBOX_DIR, PERMANENT_COMPANY_NAME)
+    os.makedirs(project_path, exist_ok=True)
+
+    print(f"\n⚡ Executing Multi-App Founder Cycle for 【 {PERMANENT_COMPANY_NAME} 】")
+
+    selected_apps = list(APP_BLUEPRINTS.keys())
+    if LOW_POWER_MODE:
+        selected_apps = selected_apps[:3]
+
+    overall_results = []
+    for idx, app_key in enumerate(selected_apps, start=1):
+        app_meta = APP_BLUEPRINTS[app_key]
+        app_name = app_meta["name"]
+        if app_name not in state["projects"]:
+            state["projects"].append(app_name)
+
+        brief = build_app_variant(project_path, app_key, app_meta, str(idx))
+        overall_results.append({"app": app_name, "brief": brief})
+
+        plan = build_project_plan(brief, "", app_name)
+        plan_path = os.path.join(project_path, f"{app_key}_EXECUTION_PLAN.md")
         try:
-            with open(prd_path, "r", encoding="utf-8") as f:
-                existing_prd = f.read()
+            with open(plan_path, "w", encoding="utf-8") as f:
+                f.write(plan)
         except Exception:
-            existing_prd = ""
-
-    current_code_context = ""
-    for target_file in ["index.html", "app.js", "styles.css"]:
-        f_path = os.path.join(project_path, target_file)
-        if os.path.exists(f_path):
-            try:
-                with open(f_path, "r", encoding="utf-8") as f:
-                    current_code_context += f"\n=== LIVE PRODUCTION FILE: {target_file} ===\n" + f.read() + "\n"
-            except Exception:
-                pass
-
-    if not existing_prd:
-        query = call_ollama(BRAIN_MODEL, "Output ONLY a 3-word web search query for a software gap.", "Find gap.")
-        query = re.sub(r"[```\n]", "", query).strip()
-        market_data = search_duckduckgo(query)
-        prd = call_ollama(BRAIN_MODEL, f"Competitors:\n{market_data}\nDesign a premium closed-source database app.", "Create blueprint.")
-    else:
-        prd = call_ollama(BRAIN_MODEL, f"Active Blueprint:\n{existing_prd}\n\nLive Code:\n{current_code_context}\n\nDesign an advanced extension layer user panel section.", "Upgrade blueprint.")
-
-    plan = build_project_plan(prd, current_code_context)
-    try:
-        with open(prd_path, "w", encoding="utf-8") as f:
-            f.write(prd)
-    except Exception:
-        print("Warning: Could not write PRODUCT_REQUIREMENTS.md")
-
-    try:
-        plan_path = os.path.join(project_path, "EXECUTION_PLAN.md")
-        with open(plan_path, "w", encoding="utf-8") as f:
-            f.write(plan)
-    except Exception:
-        pass
-
-    branding = call_ollama(DESIGN_MODEL, "Create premium Tailwind dark hex colors and visual copywriting headline hooks.", prd)
-
-    for file_name in ["index.html", "app.js", "styles.css"]:
-        print(f"  🛠️  Weaving Ultimate Kit modules into: {file_name}...")
-        system_instructions = (
-            f"You are a master engineer. Rewrite the complete file '{file_name}'. No placeholders.\n"
-            f"INJECT FROM ULTIMATE KIT BLUEPRINTS:\n"
-            f"- HTML/CSS UI styles: {ULTIMATE_KIT['LUXURY_GLASS_UI']}\n"
-            f"- Supabase Realtime & Auth: {ULTIMATE_KIT['SUPABASE_REALTIME_AUTH']}\n"
-            f"- Chartjs and ThreeJS WebGL 3D scripts: {ULTIMATE_KIT['DYNAMIC_CANVAS_3D']}\n"
-            f"- Inline Vector Icon Vault blocks: {ULTIMATE_KIT['SVG_CORE_ASSET_VAULT']}\n\n"
-            f"Integrate changes seamlessly with existing code framework:\n{current_code_context}\n"
-            f"Output ONLY raw code matching the extension type."
-        )
-        raw_code = call_ollama(ENGINE_MODEL, system_instructions, f"Compile {file_name} for {prd}. Style parameters: {branding}")
-        try:
-            with open(os.path.join(project_path, file_name), "w", encoding="utf-8") as f:
-                f.write(sanitize_and_heal_code(raw_code))
-        except Exception:
-            print(f"Warning: Could not write {file_name}")
-
-    # Additional deliverables: useful project docs to help the agent feel stronger and more complete
-    generate_additional_project_files(project_path, prd, branding)
-
-    # Marketing tone and launch copy
-    print("📢 [Creative Director] Writing automated social media marketing launch thread...")
-    marketing_prompt = "Write a high-converting, viral 4-tweet launch thread for X (Twitter) promoting this new full-stack app. Include hooks, features, and hashtags."
-    campaign_text = call_ollama(DESIGN_MODEL, marketing_prompt, f"Company: {PERMANENT_COMPANY_NAME}\nFeatures:\n{prd}")
-    try:
-        with open(os.path.join(project_path, "LAUNCH_CAMPAIGN.txt"), "w", encoding="utf-8") as f:
-            f.write(campaign_text)
-    except Exception:
-        print("Warning: Could not write LAUNCH_CAMPAIGN.txt")
-
-    # Git operations (safe and quiet)
-    print("📦 [DevOps Automation] Versioning code packages inside local Git branches...")
-    try:
-        if not os.path.exists(os.path.join(project_path, ".git")):
-            subprocess.run(["git", "init"], cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        subprocess.run(["git", "add", "."], cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        subprocess.run(["git", "commit", "-m", "Autonomous feature upgrade layer"], cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except Exception:
-        print("Warning: Git operations failed or are unavailable.")
-
-    # Deploy step: skip in low-power mode to avoid heavy network/compute
-    if not LOW_POWER_MODE:
-        try:
-            vercel_logs = subprocess.run(["vercel", "--yes", "--prod"], cwd=project_path, stdout=subprocess.PIPE, text=True).stdout
-            url_match = re.search(r'https?://[a-zA-Z0-9.-]+\\.vercel\\.app', vercel_logs)
-            print(f"🌍 Live Asset URL Location: {url_match.group(0) if url_match else 'Pushed successfully to cluster profile'}")
-        except Exception:
-            print("Vercel deploy skipped or failed.")
-    else:
-        print("Vercel deploy skipped in LOW_POWER_MODE.")
-
-    lesson = call_ollama(BRAIN_MODEL, "Identify any UI elements that feel standard or low-effort. Start response exactly with: 'DESIGN LESSON learned:'", prd)
-    try:
-        lesson_id = len([f for f in os.listdir(DESIGN_MEMORY_DIR) if f.endswith('.txt')]) + 1
-        with open(os.path.join(DESIGN_MEMORY_DIR, f"lesson_{lesson_id}.txt"), "w", encoding="utf-8") as lf:
-            lf.write(lesson)
-        print(f"📝 Evolving Memory Lesson logged: 'lesson_{lesson_id}.txt'")
-    except Exception:
-        print("Warning: Could not write design memory lesson.")
+            pass
 
     save_agent_state(state)
-    return {
-        "company": PERMANENT_COMPANY_NAME,
-        "project_path": project_path,
-        "product_requirements": prd_path,
-        "plan": plan,
-        "branding": branding,
-        "low_power": LOW_POWER_MODE,
-        "offline": OFFLINE_MODE,
-    }
+    return {"company": PERMANENT_COMPANY_NAME, "apps": overall_results, "low_power": LOW_POWER_MODE, "offline": OFFLINE_MODE}
 
 
 # Backwards-compatible wrapper: smart_founder imports this name
