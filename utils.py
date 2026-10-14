@@ -20,10 +20,13 @@ _OFFLINE_MODE = os.getenv("OFFLINE_MODE", "0").lower() in {"1", "true", "yes", "
 _LOW_POWER_MODE = os.getenv("LOW_POWER_MODE", "1").lower() not in {"0", "false", "no"}
 
 
-def _read_design_lessons():
+def _read_design_lessons(max_chars: int = 2000):
+    """Read and cache lesson files; return a concise memory summary (truncated)."""
     global _LESSON_CACHE
     if _LESSON_CACHE:
-        return _LESSON_CACHE
+        # return an aggregated summary to keep prompts short
+        combined = "\n".join(list(_LESSON_CACHE.values()))
+        return combined[:max_chars]
     memory_context = ""
     try:
         if os.path.exists(DESIGN_MEMORY_DIR):
@@ -38,7 +41,7 @@ def _read_design_lessons():
             memory_context = "\n".join(_LESSON_CACHE.values())
     except Exception:
         memory_context = ""
-    return memory_context
+    return memory_context[:max_chars]
 
 
 def search_duckduckgo(query: str) -> str:
@@ -86,12 +89,16 @@ def _ollama_stub(model_name: str, system_prompt: str, user_prompt: str) -> str:
     return summary.strip()
 
 
-def _make_cache_key(model_name: str, system_prompt: str, user_prompt: str) -> str:
-    raw = f"{model_name}\n{system_prompt}\n{user_prompt}"
+def _make_cache_key(model_name: str, system_prompt: str, user_prompt: str, options: dict | None = None) -> str:
+    raw = f"{model_name}\n{system_prompt}\n{user_prompt}\n{json.dumps(options, sort_keys=True) if options else ''}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def call_ollama(model_name: str, system_prompt: str, user_prompt: str) -> str:
+def call_ollama(model_name: str, system_prompt: str, user_prompt: str, options: dict = None) -> str:
+    """Call ollama with caching and offline fallback. Options are passed through to the model run (e.g., temperature).
+
+    Keeps prompt context short by summarizing lessons, and caches responses keyed by model+system+user+options.
+    """
     # Ultra-safe offline mode: no model calls
     if _OFFLINE_MODE:
         return _ollama_stub(model_name, system_prompt, user_prompt)
@@ -101,7 +108,7 @@ def call_ollama(model_name: str, system_prompt: str, user_prompt: str) -> str:
     else:
         user_prompt = str(user_prompt)
 
-    key = _make_cache_key(model_name, system_prompt, user_prompt)
+    key = _make_cache_key(model_name, system_prompt, user_prompt, options)
     if key in _OLLAMA_CACHE:
         return _OLLAMA_CACHE[key]
 
@@ -110,13 +117,14 @@ def call_ollama(model_name: str, system_prompt: str, user_prompt: str) -> str:
 
     # Fast fail if Ollama is not available on this machine
     try:
+        call_options = options or {"temperature": 0.4, "num_ctx": 16384}
         response = ollama.chat(
             model=model_name,
             messages=[
                 {"role": "system", "content": str(full_system)},
                 {"role": "user", "content": user_prompt},
             ],
-            options={"temperature": 0.4, "num_ctx": 16384},
+            options=call_options,
         )
         result = re.sub(r"<thought>.*?</thought>", "", response['message']['content'], flags=re.DOTALL).strip()
     except Exception:
