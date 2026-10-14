@@ -13,7 +13,7 @@ def search_duckduckgo(query: str) -> str:
     print(f"🌐 [CEO Researching Web Markets]: '{query}'")
     try:
         url = f"https://duckduckgo.com{urllib.parse.quote(query)}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
         with urllib.request.urlopen(req, timeout=12) as response:
             html = response.read().decode('utf-8')
         snippets = re.findall(r'<a class="result__snippet".*?>(.*?)</a>', html, re.DOTALL)
@@ -30,9 +30,18 @@ def call_ollama(model_name: str, system_prompt: str, user_prompt: str) -> str:
                     memory_context += file.read() + "\n"
     
     full_system = f"{system_prompt}\n\n### PAST LESSONS:\n{memory_context}"
+    
+    if isinstance(user_prompt, list):
+        user_prompt = " ".join([str(item) for item in user_prompt])
+    else:
+        user_prompt = str(user_prompt)
+
     response = ollama.chat(
         model=model_name,
-        messages=[{"role": "system", "content": full_system}, {"role": "user", "content": user_prompt}],
+        messages=[
+            {"role": "system", "content": str(full_system)}, 
+            {"role": "user", "content": user_prompt}
+        ],
         options={"temperature": 0.4, "num_ctx": 16384}
     )
     return re.sub(r"<thought>.*?</thought>", "", response['message']['content'], flags=re.DOTALL).strip()
