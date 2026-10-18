@@ -33,7 +33,7 @@ ULTIMATE_KIT = {
     "DYNAMIC_CANVAS_3D": """
         class ChartCanvasController {
             constructor(id) { this.ctx = document.getElementById(id).getContext('2d'); this.chart = null; }
-            updateChart(l,v) { if(this.chart)this.chart.destroy(); this.chart = new Chart(this.ctx,{type:'line',data:{labels:l,datasets:[{label:'Data',data:v,borderColor:'#06b6d4',fill:true}]}}); }
+            updateChart(l,v) { if(this.chart)this.chart.destroy(); this.chart = new Chart(this.ctx,{type:'line',data:{labels:l,datasets:[{label:'Data',data:v,borderColor:'#06b6d4',fill:true}]}}); [...] }
         }
         function initProcedural3DBackground(id) {
             const el = document.getElementById(id); if(!el)return;
@@ -51,17 +51,38 @@ ULTIMATE_KIT = {
 
 PERMANENT_COMPANY_NAME = "Nova_Core_Platform"
 
+
 def sanitize_and_heal_code(raw_code: str) -> str:
-    clean = re.sub(r"```[a-zA-Z]*\n", "", raw_code)
-    clean = re.sub(r"\n```\$", "", clean).strip()
+    """Remove Markdown fenced codeblocks and try to close common HTML tags if they're left open.
+
+    This is intentionally conservative: it removes ``` fences and ensures a missing </body> and/or </html>
+    are appended in a reasonable order.
+    """
+    if not isinstance(raw_code, str):
+        return ""
+
+    # Remove opening fenced code blocks like ```lang\n and closing ```
+    clean = re.sub(r"```[a-zA-Z0-9+-]*\n", "", raw_code)
+    clean = re.sub(r"\n```", "", clean)
+    clean = clean.strip()
+
+    # If there's a <body> without a </body>, append closing tags in a reasonable way
     if "<body>" in clean and "</body>" not in clean:
-        clean += "\n</body></html>"
+        if "</html>" in clean:
+            clean = clean.replace("</html>", "\n</body>\n</html>")
+        else:
+            clean += "\n</body>\n</html>"
+
     return clean
+
 
 def run_continuous_company_growth():
     project_path = os.path.join(SAFE_SANDBOX_DIR, PERMANENT_COMPANY_NAME)
     os.makedirs(project_path, exist_ok=True)
-    
+
+    # Ensure design memory dir exists before we try to write into it
+    os.makedirs(DESIGN_MEMORY_DIR, exist_ok=True)
+
     print(f"\n⚡ Executing Ultimate Scale & Feature Architecture Cycle for 【 {PERMANENT_COMPANY_NAME} 】")
     prd_path = os.path.join(project_path, "PRODUCT_REQUIREMENTS.md")
     existing_prd = ""
@@ -96,7 +117,7 @@ def run_continuous_company_growth():
             f"INJECT FROM ULTIMATE KIT BLUEPRINTS:\n"
             f"- HTML/CSS UI styles: {ULTIMATE_KIT['LUXURY_GLASS_UI']}\n"
             f"- Supabase Realtime & Auth: {ULTIMATE_KIT['SUPABASE_REALTIME_AUTH']}\n"
-            f"- Chartjs and ThreeJS WebGL 3D scripts: {ULTIMATE_KIT['DYNAMIC_DASHBOARD_ENGINES']}\n"
+            f"- Chartjs and ThreeJS WebGL 3D scripts: {ULTIMATE_KIT['DYNAMIC_CANVAS_3D']}\n"
             f"- Inline Vector Icon Vault blocks: {ULTIMATE_KIT['SVG_CORE_ASSET_VAULT']}\n\n"
             f"Integrate changes seamlessly with existing code framework:\n{current_code_context}\n"
             f"Output ONLY raw code matching the extension type."
@@ -116,10 +137,12 @@ def run_continuous_company_growth():
     if not os.path.exists(os.path.join(project_path, ".git")):
         subprocess.run(["git", "init"], cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     subprocess.run(["git", "add", "."], cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    subprocess.run(["git", "commit", "-m", f"'Autonomous feature upgrade layer'"], cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
+    subprocess.run(["git", "commit", "-m", "Autonomous feature upgrade layer"], cwd=project_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
     print("☁️ [Vercel Cloud] Shipping updated production build package live...")
-    vercel_logs = subprocess.run(["vercel", "--yes", "--prod"], cwd=project_path, stdout=subprocess.PIPE, text=True, shell=True).stdout
+    # Call vercel without shell=True (passing list) for cross-platform compatibility
+    vercel_proc = subprocess.run(["vercel", "--yes", "--prod"], cwd=project_path, stdout=subprocess.PIPE, text=True, shell=False)
+    vercel_logs = vercel_proc.stdout or ""
     url_match = re.search(r'https?://[a-zA-Z0-9.-]+\.vercel\.app', vercel_logs)
     print(f"🌍 Live Asset URL Location: {url_match.group(0) if url_match else 'Pushed successfully to cluster profile'}")
 
